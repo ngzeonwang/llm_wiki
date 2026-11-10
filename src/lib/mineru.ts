@@ -103,6 +103,8 @@ async function mineruHeaders(token: string): Promise<HeadersInit> {
   return {
     "Content-Type": "application/json",
     Authorization: `Bearer ${token}`,
+    // Tauri 在启用 unsafe-headers 时会移除空 Origin，避免云端拒绝桌面来源。
+    Origin: "",
   }
 }
 
@@ -494,6 +496,8 @@ async function uploadFileForTask(
 
   const uploadRes = await httpFetch(uploadUrl, {
     method: "PUT",
+    // 签名上传仅移除 Origin，不附带 MinerU API Token。
+    headers: { Origin: "" },
     signal,
     body: bytesToUploadBody(bytes),
   })
@@ -640,7 +644,8 @@ async function downloadAndExtractMarkdown(
 ): Promise<MineruExtractedMarkdown> {
   const httpFetch = await getHttpFetch()
   throwIfAborted(signal)
-  const res = await httpFetch(zipUrl, { signal })
+  // 结果下载同样移除 Origin，不向文件服务发送 API Token。
+  const res = await httpFetch(zipUrl, { signal, headers: { Origin: "" } })
   if (!res.ok) throw new Error(`MinerU zip download failed: HTTP ${res.status}`)
 
   return extractMarkdownFromZipResponse(res, signal, assetOptions)

@@ -718,6 +718,16 @@ describe("parseWithMineru", () => {
       modelVersion: "vlm",
     }, "/tmp/doc.pdf")).resolves.toBe("parsed markdown")
 
+    // 所有云端请求均要求插件移除 Origin，签名上传和下载不得携带 API Token。
+    expect(mockHttpFetch.mock.calls).toHaveLength(4)
+    for (const [url, init] of mockHttpFetch.mock.calls) {
+      const headers = new Headers(init?.headers)
+      expect(headers.get("Origin")).toBe("")
+      expect(headers.get("Authorization")).toBe(
+        url.startsWith("https://mineru.net/") ? "Bearer token" : null,
+      )
+    }
+
     const uploadBody = mockHttpFetch.mock.calls[1]?.[1]?.body
     expect(uploadBody).toBeInstanceOf(ArrayBuffer)
     expect(new TextDecoder().decode(uploadBody as ArrayBuffer)).toBe("custom pdf bytes")
@@ -815,6 +825,9 @@ describe("parseWithMineru", () => {
       modelVersion: "pipeline",
     }, "/tmp/doc.pdf", "https://example.test/doc.pdf")).resolves.toBe("url markdown")
 
+    for (const [, init] of mockHttpFetch.mock.calls) {
+      expect(new Headers(init?.headers).get("Origin")).toBe("")
+    }
     expect(fsMocks.getFileSize).not.toHaveBeenCalled()
     expect(fsMocks.readFileAsBase64).not.toHaveBeenCalled()
     expect(JSON.parse(String(mockHttpFetch.mock.calls[0]?.[1]?.body))).toMatchObject({
@@ -980,6 +993,9 @@ describe("testMineruConnection", () => {
     }))
 
     await expect(testMineruConnection("token")).resolves.toBeUndefined()
+    const headers = new Headers(mockHttpFetch.mock.calls[0]?.[1]?.headers)
+    expect(headers.get("Origin")).toBe("")
+    expect(headers.get("Authorization")).toBe("Bearer token")
   })
 
   it("includes HTTP status and response body when connection test transport fails", async () => {
